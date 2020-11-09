@@ -40,8 +40,8 @@ class AdminMenu
             'acfg_options_page',
             'acfg_block_type',
             'acfg_template',
-            'acfg_component',
-            'acfg_render_code'
+            'acfg_form',
+            'acfg_component'
         ];
         if ( in_array( $current_screen->post_type, $cpts ) ) {
             $parent_file = 'acf-engine';
@@ -102,7 +102,6 @@ class AdminMenu
             'edit_posts',
             'edit.php?post_type=acfg_template'
         );
-        $plugin = new \AcfEngine\Plugin();
     }
     
     public function pageDashboard()

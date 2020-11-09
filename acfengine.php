@@ -3,9 +3,9 @@
 /**
  *
  * Plugin Name: ACF Engine
- * Plugin URI: https://eatbuildplay.com/plugins/acfengine/
+ * Plugin URI: https://acfengine.com/
  * Description: Provides data-driven solutions powered by ACF including custom post types, custom taxonomies, options pages and rendering templates.
- * Version: 1.0.2
+ * Version: 1.0.3
  * Author: Eat/Build/Play
  * Author URI: https://eatbuildplay.com
  * License: GPL3
@@ -16,9 +16,7 @@
 namespace AcfEngine;
 
 use  AcfEngine\Core\AdminMenu ;
-use  AcfEngine\Core\PostTypePostType ;
-use  AcfEngine\Core\PostTypeCustom ;
-use  AcfEngine\Core\PostTypeManager ;
+use  AcfEngine\Core\PostType\PostTypeManager ;
 use  AcfEngine\Core\TaxonomyManager ;
 use  AcfEngine\Core\TaxonomyCustom ;
 use  AcfEngine\Core\TaxonomyTaxonomy ;
@@ -26,11 +24,11 @@ use  AcfEngine\Core\OptionsPageManager ;
 use  AcfEngine\Core\ComponentManager ;
 use  AcfEngine\Core\BlockType\BlockTypeManager ;
 use  AcfEngine\Core\TemplateManager ;
-use  AcfEngine\Core\RenderCodeManager ;
+use  AcfEngine\Core\FormManager ;
 use  AcfEngine\Core\Import ;
 define( 'ACF_ENGINE_PATH', plugin_dir_path( __FILE__ ) );
 define( 'ACF_ENGINE_URL', plugin_dir_url( __FILE__ ) );
-define( 'ACF_ENGINE_VERSION', '1.0.1' );
+define( 'ACF_ENGINE_VERSION', '1.0.3' );
 define( 'ACF_ENGINE_TEXT_DOMAIN', 'acf-engine' );
 class Plugin
 {
@@ -50,23 +48,56 @@ class Plugin
         $import = new Import();
         $import->init();
         // init the post type manager
-        $ptm = new PostTypeManager();
-        $ptm->setup();
+        $m = new PostTypeManager();
+        $m->setup();
         // init taxonomy manager
-        $tm = new TaxonomyManager();
-        $tm->setup();
+        $m = new TaxonomyManager();
+        $m->setup();
         // init options page manager
-        $opm = new OptionsPageManager();
-        $opm->setup();
+        $m = new OptionsPageManager();
+        $m->setup();
         // init block type manager
-        $opm = new BlockTypeManager();
-        $opm->setup();
+        $m = new BlockTypeManager();
+        $m->setup();
         // init template manager
-        $opm = new TemplateManager();
-        $opm->setup();
+        $m = new TemplateManager();
+        $m->setup();
         /* end load pro component managers */
         /* enqueue scripts */
         add_action( 'wp_enqueue_scripts', [ $this, 'scripts' ] );
+        // add the action delete file json post type or taxonomy
+        add_action(
+            'before_delete_post',
+            [ $this, 'acfg_before_delete_post' ],
+            10,
+            1
+        );
+        /*
+         * Handle rewrite flush if requested
+         */
+        
+        if ( get_option( 'acfg_flush_rewrite', 0 ) == 1 ) {
+            flush_rewrite_rules();
+            update_option( 'acfg_flush_rewrite', 1 );
+        }
+    
+    }
+    
+    public function acfg_before_delete_post( $id_acfg )
+    {
+        $acfg_post = get_post( $id_acfg );
+        
+        if ( $acfg_post->post_type == 'acfg_post_type' ) {
+            $acfg_key = get_post_meta( $id_acfg, 'key', true );
+            wp_delete_file( \AcfEngine\Plugin::dataStoragePath() . 'post-types/' . $acfg_key . '.json' );
+        }
+        
+        
+        if ( $acfg_post->post_type == 'acfg_taxonomy' ) {
+            $acfg_key = get_post_meta( $id_acfg, 'key', true );
+            wp_delete_file( \AcfEngine\Plugin::dataStoragePath() . 'taxonomies/' . $acfg_key . '.json' );
+        }
+    
     }
     
     public function acfSaveLocal( $path )
@@ -96,6 +127,9 @@ class Plugin
             }
             
             $className = 'BlockType/' . $className;
+        } elseif ( 0 === strpos( $className, 'AcfEngine\\Core\\PostType' ) ) {
+            $className = str_replace( 'AcfEngine\\Core\\PostType\\', '', $className );
+            $className = 'PostType/' . $className;
         } else {
             $className = str_replace( 'AcfEngine\\Core\\', '', $className );
             $className = str_replace( '\\', '/', $className );
@@ -123,13 +157,6 @@ class Plugin
             '1.0.0',
             false
         );
-        wp_enqueue_script(
-            'acfg-react',
-            ACF_ENGINE_URL . 'build/index.js',
-            array( 'wp-blocks', 'wp-element', 'wp-polyfill' ),
-            '18a3fbe1ffe108ec652b0df97bee372e',
-            true
-        );
         wp_enqueue_style(
             'acfg-css',
             ACF_ENGINE_URL . 'scripts/css/acfg.css',
@@ -153,7 +180,7 @@ class Plugin
     }
     
     // Create a helper function for easy SDK access.
-    public function freemius()
+    public static function freemius()
     {
         global  $afcgFreemius ;
         

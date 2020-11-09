@@ -34,19 +34,13 @@ class AcfField extends BlockType {
 		}
 
 		if( $isPreview ) {
-			$templatePostType = get_field('post_type', $editorPostId);
 
-			$previewPosts = get_posts([
-				'post_type' => $templatePostType
-			]);
-			if( empty( $previewPosts )) {
-				print 'SORRY NO POSTS AVAILABLE TO USE FOR PREVIEW.';
-				return;
-			}
+			$previewPost = $this->getPreviewPost( $editorPostId );
+			$postId = $previewPost->ID;
 
-			$previewPost = $previewPosts[0];
 			$fieldKey = get_field('meta_key');
 	    $fieldPostId = get_field('post_id');
+
 			if( $fieldPostId == 'current' ) {
 				$fieldValue = get_field( $fieldKey, $previewPost->ID );
 				$fieldObject = get_field_object( $fieldKey, $previewPost->ID);
@@ -55,58 +49,51 @@ class AcfField extends BlockType {
 				$fieldObject = get_field_object( $fieldKey, $fieldPostId);
 			}
 
-			print '<h2>';
-	    print $fieldValue;
-	    print '</h2>';
-			return;
+		} else {
+
+			// live render
+			$postId = $editorPostId;
+
+			$fieldKey = get_field('meta_key');
+	    $fieldPostId = get_field('post_id');
+
+			if( $fieldPostId == 'current' ) {
+				$fieldValue = get_field( $fieldKey, $editorPostId );
+				$fieldObject = get_field_object( $fieldKey, $editorPostId );
+			} else {
+				$fieldValue = get_field( $fieldKey, $fieldPostId );
+				$fieldObject = get_field_object( $fieldKey, $fieldPostId );
+			}
 
 		}
 
-    $data = $block['data'];
-    $fieldKey = get_field('meta_key');
-    $fieldPostId = get_field('post_id');
+		if( $fieldValue == '' ) {
+			return;
+		}
+
+    $this->render( $fieldObject, $fieldValue, $postId );
+
+  }
+
+
+	protected function render( $fieldObject, $fieldValue, $postId ) {
+
 		$wrapTag = get_field('wrap_tag');
 
-		if( $fieldPostId == 'current' ) {
-			$fieldValue = get_field( $fieldKey, $editorPostId );
-			$fieldObject = get_field_object( $fieldKey, $editorPostId );
-		} else {
-			$fieldValue = get_field( $fieldKey, $fieldPostId );
-			$fieldObject = get_field_object( $fieldKey, $fieldPostId );
-		}
+		print '<' . $wrapTag . '>';
 
-		if( $fieldValue == '' || $wrapTag == '' ) {
-			return;
-		}
-
-    print '<' . $wrapTag . '>';
-
-		$tl = new TemplateLoader();
+		$tl = new \AcfEngine\Core\TemplateLoader();
 		$tl->path = 'templates/fields/' . $fieldObject['type'] . '/';
 		$tl->name = 'default';
 		$tl->data = [
-			'field' => $fieldObject,
-			'postId' => $editorPostId
+			'value' 	=> $fieldValue,
+			'field' 	=> $fieldObject,
+			'postId' 	=> $postId
 		];
-
-		//var_dump( $tl );
 
 		$tl->render();
 
     print '</' . $wrapTag . '>';
-
-  }
-
-	protected function renderPreview() {
-
-
-
-
-	}
-
-	protected function renderFront() {
-
-
 
 	}
 
